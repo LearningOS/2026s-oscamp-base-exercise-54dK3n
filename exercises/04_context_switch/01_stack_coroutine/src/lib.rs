@@ -84,9 +84,9 @@ impl TaskContext {
 /// In asm: store `sp`, `ra`, `s0`–`s11` to `[a0]` (old), load from `[a1]` (new), zero `a0`/`a1` so we do not leak pointers into the new context, then `ret`.
 ///
 /// Must be `#[unsafe(naked)]` to prevent the compiler from generating a prologue/epilogue.
-pub unsafe fn switch_context(old: &mut TaskContext, new: &TaskContext) {
-    core::arch::asm!(
-        // Save callee-saved registers to old (a0)
+#[unsafe(naked)]
+pub unsafe extern "C" fn switch_context(_old: &mut TaskContext, _new: &TaskContext) {
+    core::arch::naked_asm!(
         "sd sp, 0(a0)",
         "sd ra, 8(a0)",
         "sd s0, 16(a0)",
@@ -101,7 +101,6 @@ pub unsafe fn switch_context(old: &mut TaskContext, new: &TaskContext) {
         "sd s9, 88(a0)",
         "sd s10, 96(a0)",
         "sd s11, 104(a0)",
-        // Load callee-saved registers from new (a1)
         "ld sp, 0(a1)",
         "ld ra, 8(a1)",
         "ld s0, 16(a1)",
@@ -116,16 +115,11 @@ pub unsafe fn switch_context(old: &mut TaskContext, new: &TaskContext) {
         "ld s9, 88(a1)",
         "ld s10, 96(a1)",
         "ld s11, 104(a1)",
-        // Clear argument regs to avoid leaking pointers into new context
-        "mv a0, zero",
-        "mv a1, zero",
-        // Jump to new.ra
+        "li a0, 0",
+        "li a1, 0",
         "ret",
-        in("a0") old,
-        in("a1") new,
-        options(noreturn)
     );
-    }
+}
 
 const STACK_SIZE: usize = 1024 * 64;
 
